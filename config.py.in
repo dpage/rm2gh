@@ -1,0 +1,15 @@
+# Copy this file to config.py and edit to suit.
+
+# The maximum number of issues to try to migrate. Useful for testing with
+# a small initial batch.
+MAX_ISSUES = 999
+
+# Redmine details
+REDMINE_URL = 'https://redmine.mydomain.com' # No trailing /
+REDMINE_TOKEN = 'my_redmine_api_token'
+REDMINE_PROJECT = 'my_redmine_project'
+
+# Github details
+GITHUB_TOKEN = 'my_github_api_token' # Must have repo access scope
+GITHUB_USER = 'my_github_username'
+GITHUB_REPO = 'my_github_repo_name'
