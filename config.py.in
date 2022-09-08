@@ -1,15 +1,32 @@
 # Copy this file to config.py and edit to suit.
 
+# Debug mode. In this mode, no uploads will be performed. Instead, the data
+# that would be imported to Github will be output.
+DEBUG = False
+
 # The maximum number of issues to try to migrate. Useful for testing with
 # a small initial batch.
 MAX_ISSUES = 999
 
+# Clear labels from Github before migrating?
+CLEAR_LABELS = False
+
+# Clear milestones from Github before migrating?
+CLEAR_MILESTONES = False
+
 # Redmine details
 REDMINE_URL = 'https://redmine.mydomain.com' # No trailing /
+REDMINE_VERSION = 'my_redmine_version' # e.g. 4.0.7
 REDMINE_TOKEN = 'my_redmine_api_token'
 REDMINE_PROJECT = 'my_redmine_project'
+REDMINE_CUSTOM_FIELDS = ['my_custom_field1', 'my_custom_field2'] # Values will be added as labels
 
 # Github details
 GITHUB_TOKEN = 'my_github_api_token' # Must have repo access scope
 GITHUB_USER = 'my_github_username'
 GITHUB_REPO = 'my_github_repo_name'
+
+# AWS Details
+AWS_CLI_PROFILE = 'my_aws_cli_profile'
+S3_BUCKET_NAME = 'my_s3_bucket_name'
+S3_BUCKET_URL = 'my_s3_bucket_public_url'

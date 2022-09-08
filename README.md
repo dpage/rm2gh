@@ -1,5 +1,9 @@
 # rh2gh - Redmine to Github Issue Migrator
 
+**NOTE:** this was built for the sole purpose of migrating the pgAdmin 4 Redmine
+project at https://redmine.postgresql.org/projects/dave-test to Github. It's 
+entirely possible^Wprobable that there is some project-specific code in here!
+
 This is a WIP tool for migrating issues from Redmine to Github.
 
 It will iterate through the issues on a Redmine project, and migrate them to
@@ -23,12 +27,5 @@ migrated may require multiple API requests. Plan your migration accordingly.
 
 ## TODO
 
-* Add the tracker name as a tag
-* Add attachment support:
-  * Upload the attachments to an S3 bucket (there's no Github upload API)
-  * Create a Github comment for each attachment, inlining images and with
-    a link to other content
-  * Intermix attachments with comments, based on date ordering.
-* Check Textile vs. Markdown formatting works as expected.
 * Add support for batching (e.g. select source issues by range).
 * Add a link to the migrated issue on Redmine, to the new Github issue.

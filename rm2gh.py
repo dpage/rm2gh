@@ -1,11 +1,14 @@
-from redminelib import Redmine
-import github3
-import github3.utils as ghutils
+import os
 import json
 import sys
+import tempfile
 import time
 import urllib.request
 
+import boto3
+import github3
+import github3.utils as ghutils
+from redminelib import Redmine
 
 try:
     from config import *
@@ -14,33 +17,148 @@ except ImportError:
     sys.exit(1)
 
 
-def create_issue(rm_issue):
+def s3_upload(s3, attachment, path):
+    directory = tempfile.mkdtemp()
+
+    attachment.download(savepath=directory, filename=attachment.filename)
+
+    s3.upload_file(os.path.join(directory, attachment.filename),
+                   S3_BUCKET_NAME, path,
+                   ExtraArgs={'ContentType': attachment.content_type,
+                              'ACL': "public-read"})
+
+    os.remove(os.path.join(directory, attachment.filename))
+    os.rmdir(directory)
+
+
+def format_attachment(attachment, issue_id, s3):
+    # Construct the new comment and append it to the list
+    if attachment.content_type.startswith('image/'):
+        comment = '***Image migrated from Redmine: ' \
+                  '{}/attachments/download/{}***\n' \
+                  '*Originally created by {} at {} UTC.*\n\n' \
+                  '![{}]({}/{}/{}-{})\n\n**Description:** {}'.format(
+                    REDMINE_URL, attachment.id, attachment.author,
+                    attachment.created_on, attachment.filename,
+                    S3_BUCKET_URL, issue_id, attachment.id,
+            attachment.filename, attachment.description)
+    else:
+        comment = '***Attachment migrated from Redmine: ' \
+                  '{}/attachments/download/{}***\n' \
+                  '*Originally created by {} at {} UTC.*\n\n' \
+                  '{}/{}/{}-{}\n\n**Description:** {}'.format(
+                    REDMINE_URL, attachment.id, attachment.author,
+                    attachment.created_on, S3_BUCKET_URL, issue_id,
+                    attachment.id, attachment.filename, attachment.description)
+
+    if not DEBUG:
+        s3_upload(s3,
+                  attachment,
+                  'redmine/{}/{}-{}'.format(
+                      issue_id, attachment.id, attachment.filename))
+
+    return comment
+
+
+def format_journal(journal, issue_id, note):
+    # Attempt to get notes. These may be empty, or non-existent if the
+    # only change was to the Redmine ticket header.
+    notes = ''
+    try:
+        notes = journal.notes
+    except:
+        pass
+
+    if len(journal.details) > 0:
+        notes = '{}\n\nRedmine ticket header update: {}' \
+            .format(notes, journal.details)
+
+    # Construct the new comment and append it to the list
+    comment = '***Comment migrated from Redmine: ' \
+              '{}/issues/{}#note-{}***\n' \
+              '*Originally created by {} at {} UTC.*\n\n{}'.format(
+        REDMINE_URL, issue_id, note, journal.user,
+        journal.created_on, notes)
+
+    return comment
+
+
+def get_comment_list(rm_issue, s3):
+    sources = []
+    journal_id = 0
+    for journal in rm_issue.journals:
+        sources.append({'id': journal_id,
+                        'ts': journal.created_on,
+                        'type': 'j'})
+        journal_id = journal_id + 1
+
+    attachment_id = 0
+    for attachment in rm_issue.attachments:
+        sources.append({'id': attachment_id,
+                        'ts': attachment.created_on,
+                        'type': 'a'})
+        attachment_id = attachment_id + 1
+
+    sources = sorted(sources, key=lambda d: d['ts'])
+
+    comments = []
+    note = 1
+    for source in sources:
+        if source['type'] == 'j':
+            journal = rm_issue.journals[source['id']]
+            comment = format_journal(journal, rm_issue.id, note)
+            comments.append({'body': comment,
+                             'created_at':
+                            ghutils.timestamp_parameter(journal.created_on)})
+
+        elif source['type'] == 'a':
+            attachment = rm_issue.attachments[source['id']]
+            comment = format_attachment(attachment, rm_issue.id, s3)
+            comments.append({'body': comment,
+                             'created_at':
+                            ghutils.timestamp_parameter(
+                                attachment.created_on)})
+
+        note = note + 1
+
+    return comments
+
+
+def create_issue(rm_issue, project, repository, s3):
+    # Construct the new ticket body/description
     body = '***Issue migrated from Redmine: ' \
            '{}/issues/{}***\n' \
            '*Originally created by {} at {} UTC.*\n\n{}'.format(
             REDMINE_URL, rm_issue.id, rm_issue.author,
             rm_issue.created_on, rm_issue.description)
 
-    comments = []
-    note = 1
-    for journal in rm_issue.journals:
-        comment = '***Comment migrated from Redmine: ' \
-                  '{}/issues/{}#note-{}***\n' \
-                  '*Originally created by {} at {} UTC.*\n\n{}'.format(
-                    REDMINE_URL, rm_issue.id, note, journal.user,
-                    journal.created_on, journal.notes)
-        comments.append({'body': comment,
-                         'created_at':
-                             ghutils.timestamp_parameter(journal.created_on)})
-        note = note + 1
+    comments = get_comment_list(rm_issue, s3)
 
+    labels = [rm_issue.tracker.name.lower()]
+
+    # Add custom labels
+    for field in REDMINE_CUSTOM_FIELDS:
+        try:
+            label = rm_issue.custom_fields.filter(name=field)[0].value
+            if label != '':
+                labels.append(label)
+        except:
+            pass
+
+    milestone = None
+    try:
+        milestone = rm_issue.fixed_version.name
+    except:
+        pass
+
+    # Create the Github import data
     gh_issue = {
         'title': rm_issue.subject,
         'body': body,
         'created_at': rm_issue.created_on,
         'assignee': None,
-        'milestone': None,
-        'labels': None,
+        'milestone': milestone,
+        'labels': labels,
         'assignee': None,
         'comments': comments
     }
@@ -49,6 +167,8 @@ def create_issue(rm_issue):
 
 
 def get_imported_issue_id(url):
+    # Call the import URL. When the import is complete, the public URL
+    # will be included in the issue_url field.
     hdr = {'Authorization': 'token {}'.format(GITHUB_TOKEN),
            'Accept': 'application/vnd.github.golden-comet-preview+json'}
 
@@ -57,16 +177,99 @@ def get_imported_issue_id(url):
 
     issue = json.loads(data)
 
+    if issue['status'] == 'failed':
+        print('Issue import failed: {}'.format(issue))
+        sys.exit(1)
+
     if issue['status'] == 'imported':
         return int(issue['issue_url'].split('/')[-1])
     else:
         return 0
 
 
+def clear_github_labels(repository):
+    # Clear labels
+    if CLEAR_LABELS and not DEBUG:
+        labels = repository.labels()
+        for label in labels:
+            label.delete()
+
+
+def migrate_versions(project, repository):
+    if DEBUG:
+        return
+
+    if CLEAR_MILESTONES:
+        for milestone in repository.milestones(state='all'):
+            if not milestone.delete():
+                print('Failed to delete milestone "{}"'.format(milestone))
+
+    versions = project.versions
+
+    for version in versions:
+        due_date = None
+        try:
+            due_date = '{}T00:00:00Z'.format(version.due_date)
+        except:
+            pass
+
+        try:
+            repository.create_milestone(version.name,
+                                        state=version.status,
+                                        description=version.description,
+                                        due_on=due_date)
+
+            print('Migrated version "{}" (state: {}, due date: {})'.format(
+                version.name, version.status, due_date))
+        except Exception as e:
+            print('Failed to migrate version "{}": {}'
+                  .format(version.name, e))
+
+
+def migrate_issues(redmine, project, github, repository, s3):
+    # Iterate through the issues on Redmine
+    issue_count = 0
+    issues = redmine.issue.filter(sort='id', status_id='open',
+                                  project_id=REDMINE_PROJECT,
+                                  include=['journals',
+                                           'attachments',
+                                           'versions'])
+    for rm_issue in issues:
+        if issue_count == MAX_ISSUES:
+            break
+
+        # Create the Github issue data
+        gh_issue = create_issue(rm_issue, project, repository, s3)
+
+        if not DEBUG:
+            # Perform the import
+            imp_issue = repository.import_issue(**gh_issue)
+
+            # Get the public ID of the new comment
+            new_issue_id = get_imported_issue_id(imp_issue.url)
+            sleep_time = 1
+            while new_issue_id == 0:
+                time.sleep(sleep_time)
+                sleep_time = sleep_time + 1
+                new_issue_id = get_imported_issue_id(imp_issue.url)
+
+            new_issue = github.issue(GITHUB_USER, GITHUB_REPO, new_issue_id)
+
+            print('Migrated {}/issues/{} to {}'.format(
+                REDMINE_URL, rm_issue.id, new_issue.html_url))
+
+        else:
+            print(gh_issue)
+
+        issue_count = issue_count + 1
+
+    print('Migrated {} issues.'.format(issue_count))
+
+
 def main():
     # Login to Redmine and get the project
     redmine = Redmine(REDMINE_URL,
-                      version='4.0.7',
+                      version=REDMINE_VERSION,
                       key=REDMINE_TOKEN)
     project = redmine.project.get(REDMINE_PROJECT)
 
@@ -74,32 +277,15 @@ def main():
     github = github3.login(token=GITHUB_TOKEN)
     repository = github.repository(GITHUB_USER, GITHUB_REPO)
 
-    # Iterate through the issues on Redmine
-    issue_count = 0
-    for rm_issue in project.issues:
-        if issue_count == MAX_ISSUES:
-            break
+    # Login to S3
+    session = boto3.Session(profile_name=AWS_CLI_PROFILE)
+    s3 = session.client('s3')
 
-        # Create the Github issue data
-        gh_issue = create_issue(rm_issue)
+    clear_github_labels(repository)
 
-        # Perform the import
-        imp_issue = repository.import_issue(**gh_issue)
+    migrate_versions(project, repository)
 
-        # Get the public ID of the new comment
-        new_issue_id = get_imported_issue_id(imp_issue.url)
-        while new_issue_id == 0:
-            time.sleep(1)
-            new_issue_id = get_imported_issue_id(imp_issue.url)
-
-        new_issue = github.issue(GITHUB_USER, GITHUB_REPO, new_issue_id)
-
-        print('Migrated {}/issues/{} to {}'.format(
-            REDMINE_URL, rm_issue.id, new_issue.html_url))
-
-        issue_count = issue_count + 1
-
-    print('Migrated {} issues.'.format(issue_count))
+    migrate_issues(redmine, project, github, repository, s3)
 
 
 if __name__ == "__main__":
