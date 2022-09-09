@@ -235,7 +235,7 @@ def create_issue(rm_issue, redmine, repository, s3):
 
     # Create the Github import data
     gh_issue = {
-        'title': rm_issue.subject,
+        'title': '[RM #{}] {}'.format(rm_issue.id, rm_issue.subject),
         'body': body,
         'created_at': rm_issue.created_on,
         'assignee': None,
