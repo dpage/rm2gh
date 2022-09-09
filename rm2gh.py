@@ -343,7 +343,7 @@ def redmine_linkback(redmine, rm_issue, url):
 def migrate_issues(redmine, project, github, repository, s3):
     # Iterate through the issues on Redmine
     issue_count = 0
-    issues = redmine.issue.filter(sort='id', status_id='open', issue_id=7298,
+    issues = redmine.issue.filter(sort='id', status_id='open',
                                   project_id=REDMINE_PROJECT,
                                   include=['journals',
                                            'attachments',
