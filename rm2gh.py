@@ -47,7 +47,7 @@ def format_changelog(changes, rm_issue, redmine):
 
     for change in changes:
         if change['property'] == 'attachment':
-            name = 'Attachment Added'
+            name = 'Attachment added'
             old_value = ''
             new_value = change['new_value'] or ''
 
@@ -86,19 +86,30 @@ def format_changelog(changes, rm_issue, redmine):
             else:
                 pass
 
-            name = '{} Changed'.format(
+            name = '{} changed'.format(
                 change['name'].replace('_', ' ').title().replace(' Id', ' ID'))
             old_value = old_value or ''
             new_value = new_value or ''
 
         elif change['property'] == 'cf':
-            name = '{} Changed'.format(
+            name = '{} changed'.format(
                 rm_issue.custom_fields.filter(id=int(change['name']))[0].name)
             old_value = change['old_value'] or ''
             new_value = change['new_value'] or ''
 
+        elif change['property'] == 'relation':
+            name = 'Relationship ({}) changed'.format(change['name'])
+            if change['old_value'] is not None:
+                old_value = 'RM #{}'.format(change['old_value'])
+            else:
+                old_value = ''
+            if change['new_value'] is not None:
+                new_value = 'RM #{}'.format(change['new_value'])
+            else:
+                new_value = ''
+
         else:
-            name = '{} changed ({})'.format(
+            name = '{} ({}) changed'.format(
                 change['property'], change['name'])
             old_value = change['old_value'] or ''
             new_value = change['new_value'] or ''
