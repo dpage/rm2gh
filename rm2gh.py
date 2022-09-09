@@ -104,15 +104,16 @@ def format_changelog(changes, rm_issue, redmine):
 
 def format_attachment(attachment, issue_id, s3):
     # Construct the new comment and append it to the list
+    filename = attachment.filename.replace(' ', '_')
     if attachment.content_type.startswith('image/'):
         comment = '***Image migrated from Redmine: ' \
                   '{}/attachments/download/{}***\n' \
                   '*Originally created by {} at {} UTC.*\n\n' \
                   '![{}]({}/{}/{}-{})\n\n**Description:** {}'.format(
                     REDMINE_URL, attachment.id, attachment.author,
-                    attachment.created_on, attachment.filename,
+                    attachment.created_on, filename,
                     S3_BUCKET_URL, issue_id, attachment.id,
-            attachment.filename, attachment.description)
+                    filename, attachment.description)
     else:
         comment = '***Attachment migrated from Redmine: ' \
                   '{}/attachments/download/{}***\n' \
@@ -120,13 +121,13 @@ def format_attachment(attachment, issue_id, s3):
                   '{}/{}/{}-{}\n\n**Description:** {}'.format(
                     REDMINE_URL, attachment.id, attachment.author,
                     attachment.created_on, S3_BUCKET_URL, issue_id,
-                    attachment.id, attachment.filename, attachment.description)
+                    attachment.id, filename, attachment.description)
 
     if not DEBUG:
         s3_upload(s3,
                   attachment,
                   'redmine/{}/{}-{}'.format(
-                      issue_id, attachment.id, attachment.filename))
+                      issue_id, attachment.id, filename))
 
     return comment
 
