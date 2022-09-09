@@ -51,15 +51,15 @@ def format_changelog(changes, rm_issue, redmine):
 
             if change['name'] == 'assigned_to_id':
                 if old_value is not None:
-                    old_value = str(redmine.user.get(old_value))
+                    old_value = str(redmine.user.get(int(old_value)))
                 if new_value is not None:
-                    new_value = str(redmine.user.get(new_value))
+                    new_value = str(redmine.user.get(int(new_value)))
 
             elif change['name'] == 'fixed_version_id':
                 if old_value is not None:
-                    old_value = str(redmine.version.get(old_value))
+                    old_value = str(redmine.version.get(int(old_value)))
                 if new_value is not None:
-                    new_value = str(redmine.version.get(new_value))
+                    new_value = str(redmine.version.get(int(ew_value)))
 
             elif change['name'] == 'priority_id':
                 if old_value is not None:
@@ -73,9 +73,9 @@ def format_changelog(changes, rm_issue, redmine):
 
             elif change['name'] == 'status_id':
                 if old_value is not None:
-                    old_value = str(redmine.issue_status.get(old_value))
+                    old_value = str(redmine.issue_status.get(int(old_value)))
                 if new_value is not None:
-                    new_value = str(redmine.issue_status.get(new_value))
+                    new_value = str(redmine.issue_status.get(int(new_value)))
 
             else:
                 pass
