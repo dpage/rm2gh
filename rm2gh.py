@@ -31,6 +31,77 @@ def s3_upload(s3, attachment, path):
     os.rmdir(directory)
 
 
+def format_changelog(changes, rm_issue, redmine):
+    if len(changes) == 0:
+        return ''
+
+    log = '**Redmine ticket header update:**\n\n' \
+          'Name | Old Value | New Value\n' \
+          '-----|-----------|----------'
+
+    for change in changes:
+        if change['property'] == 'attachment':
+            name = 'Attachment Added'
+            old_value = ''
+            new_value = change['new_value'] or ''
+
+        elif change['property'] == 'attr':
+            old_value = change['old_value']
+            new_value = change['new_value']
+
+            if change['name'] == 'assigned_to_id':
+                if old_value is not None:
+                    old_value = str(redmine.user.get(old_value))
+                if new_value is not None:
+                    new_value = str(redmine.user.get(new_value))
+
+            elif change['name'] == 'fixed_version_id':
+                if old_value is not None:
+                    old_value = str(redmine.version.get(old_value))
+                if new_value is not None:
+                    new_value = str(redmine.version.get(new_value))
+
+            elif change['name'] == 'priority_id':
+                if old_value is not None:
+                    old_value = \
+                        str(redmine.enumeration.filter(
+                            resource='issue_priorities').get(int(old_value)))
+                if new_value is not None:
+                    new_value = \
+                        str(redmine.enumeration.filter(
+                            resource='issue_priorities').get(int(new_value)))
+
+            elif change['name'] == 'status_id':
+                if old_value is not None:
+                    old_value = str(redmine.issue_status.get(old_value))
+                if new_value is not None:
+                    new_value = str(redmine.issue_status.get(new_value))
+
+            else:
+                pass
+
+            name = '{} Changed'.format(
+                change['name'].replace('_', ' ').title().replace(' Id', ' ID'))
+            old_value = old_value or ''
+            new_value = new_value or ''
+
+        elif change['property'] == 'cf':
+            name = '{} Changed'.format(
+                rm_issue.custom_fields.filter(id=int(change['name']))[0].name)
+            old_value = change['old_value'] or ''
+            new_value = change['new_value'] or ''
+
+        else:
+            name = '{} changed ({})'.format(
+                change['property'], change['name'])
+            old_value = change['old_value'] or ''
+            new_value = change['new_value'] or ''
+
+        log = '{}\n{} | {} | {}'.format(log, name, old_value, new_value)
+
+    return log
+
+
 def format_attachment(attachment, issue_id, s3):
     # Construct the new comment and append it to the list
     if attachment.content_type.startswith('image/'):
@@ -60,7 +131,7 @@ def format_attachment(attachment, issue_id, s3):
     return comment
 
 
-def format_journal(journal, issue_id, note):
+def format_journal(journal, rm_issue, note, project):
     # Attempt to get notes. These may be empty, or non-existent if the
     # only change was to the Redmine ticket header.
     notes = ''
@@ -69,21 +140,25 @@ def format_journal(journal, issue_id, note):
     except:
         pass
 
-    if len(journal.details) > 0:
-        notes = '*{}\n\nRedmine ticket header update: {}*' \
-            .format(notes, journal.details)
-
     # Construct the new comment and append it to the list
     comment = '***Comment migrated from Redmine: ' \
               '{}/issues/{}#note-{}***\n' \
-              '*Originally created by {} at {} UTC.*\n\n{}'.format(
-        REDMINE_URL, issue_id, note, journal.user,
-        journal.created_on, notes)
+              '*Originally created by {} at {} UTC.*'.format(
+                REDMINE_URL, rm_issue.id, note, journal.user,
+                journal.created_on)
+
+    # Add any notes
+    if notes != '':
+        comment = '{}\n\n{}'.format(comment, notes)
+
+    # Add any metadata changes
+    comment = '{}\n\n{}' \
+        .format(comment, format_changelog(journal.details, rm_issue, project))
 
     return comment
 
 
-def get_comment_list(rm_issue, s3):
+def get_comment_list(rm_issue, redmine, s3):
     sources = []
     journal_id = 0
     for journal in rm_issue.journals:
@@ -106,7 +181,7 @@ def get_comment_list(rm_issue, s3):
     for source in sources:
         if source['type'] == 'j':
             journal = rm_issue.journals[source['id']]
-            comment = format_journal(journal, rm_issue.id, note)
+            comment = format_journal(journal, rm_issue, note, redmine)
             comments.append({'body': comment,
                              'created_at':
                             ghutils.timestamp_parameter(journal.created_on)})
@@ -124,7 +199,7 @@ def get_comment_list(rm_issue, s3):
     return comments
 
 
-def create_issue(rm_issue, project, repository, s3):
+def create_issue(rm_issue, redmine, repository, s3):
     # Construct the new ticket body/description
     body = '***Issue migrated from Redmine: ' \
            '{}/issues/{}***\n' \
@@ -132,7 +207,7 @@ def create_issue(rm_issue, project, repository, s3):
             REDMINE_URL, rm_issue.id, rm_issue.author,
             rm_issue.created_on, rm_issue.description)
 
-    comments = get_comment_list(rm_issue, s3)
+    comments = get_comment_list(rm_issue, redmine, s3)
 
     labels = [rm_issue.tracker.name.lower()]
 
@@ -202,10 +277,9 @@ def clear_github_labels(repository):
 
 
 def migrate_versions(project, repository):
-    if CLEAR_MILESTONES:
-        for milestone in repository.milestones(state='all'):
-            if not milestone.delete():
-                print('Failed to delete milestone "{}"'.format(milestone))
+    for milestone in repository.milestones(state='all'):
+        if not milestone.delete():
+            print('Failed to delete milestone "{}"'.format(milestone))
 
     versions = project.versions
 
@@ -250,7 +324,7 @@ def migrate_issues(redmine, project, github, repository, s3):
             break
 
         # Create the Github issue data
-        gh_issue = create_issue(rm_issue, project, repository, s3)
+        gh_issue = create_issue(rm_issue, redmine, repository, s3)
 
         if not DEBUG:
             # Perform the import
@@ -298,7 +372,7 @@ def main():
     if CLEAR_LABELS and not DEBUG:
         clear_github_labels(repository)
 
-    if not DEBUG:
+    if CLEAR_MILESTONES and not DEBUG:
         migrate_versions(project, repository)
 
     migrate_issues(redmine, project, github, repository, s3)

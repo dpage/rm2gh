@@ -28,4 +28,3 @@ migrated may require multiple API requests. Plan your migration accordingly.
 ## TODO
 
 * Add support for batching (e.g. select source issues by range).
-* Decode header changes on Redmine to a readable string.

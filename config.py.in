@@ -12,7 +12,7 @@ MAX_ISSUES = 1000
 # Clear labels from Github before migrating?
 CLEAR_LABELS = False
 
-# Clear milestones from Github before migrating?
+# Clear (and migrate) milestones from Github before migrating?
 CLEAR_MILESTONES = False
 
 # Redmine details
