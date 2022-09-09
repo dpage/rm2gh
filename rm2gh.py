@@ -209,7 +209,7 @@ def create_issue(rm_issue, redmine, repository, s3):
 
     comments = get_comment_list(rm_issue, redmine, s3)
 
-    labels = [rm_issue.tracker.name.lower()]
+    labels = [rm_issue.tracker.name.title()]
 
     # Add custom labels
     for field in REDMINE_CUSTOM_FIELDS:
