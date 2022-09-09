@@ -71,7 +71,7 @@ def format_changelog(changes, rm_issue, redmine):
                     try:
                         new_value = str(redmine.version.get(int(new_value)))
                     except:
-                        old_value = 'Unknown'
+                        new_value = 'Unknown'
 
             elif change['name'] == 'priority_id':
                 if old_value is not None:
@@ -88,6 +88,12 @@ def format_changelog(changes, rm_issue, redmine):
                     old_value = str(redmine.issue_status.get(int(old_value)))
                 if new_value is not None:
                     new_value = str(redmine.issue_status.get(int(new_value)))
+
+            elif change['name'] == 'tracker_id':
+                if old_value is not None:
+                    old_value = str(redmine.tracker.get(int(old_value)))
+                if new_value is not None:
+                    new_value = str(redmine.tracker.get(int(new_value)))
 
             else:
                 pass
