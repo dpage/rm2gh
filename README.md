@@ -28,4 +28,4 @@ migrated may require multiple API requests. Plan your migration accordingly.
 ## TODO
 
 * Add support for batching (e.g. select source issues by range).
-* Add a link to the migrated issue on Redmine, to the new Github issue.
+* Decode header changes on Redmine to a readable string.

@@ -70,7 +70,7 @@ def format_journal(journal, issue_id, note):
         pass
 
     if len(journal.details) > 0:
-        notes = '{}\n\nRedmine ticket header update: {}' \
+        notes = '*{}\n\nRedmine ticket header update: {}*' \
             .format(notes, journal.details)
 
     # Construct the new comment and append it to the list
@@ -145,11 +145,18 @@ def create_issue(rm_issue, project, repository, s3):
         except:
             pass
 
-    milestone = None
+    # Add the corresponding milestone, if there is a fixed version
+    milestone_id = None
+    milestone_name = None
     try:
-        milestone = rm_issue.fixed_version.name
+        milestone_name = rm_issue.fixed_version.name
     except:
         pass
+
+    if milestone_name is not None:
+        for milestone in repository.milestones(state='all'):
+            if milestone.title == milestone_name:
+                milestone_id = milestone.number
 
     # Create the Github import data
     gh_issue = {
@@ -157,7 +164,7 @@ def create_issue(rm_issue, project, repository, s3):
         'body': body,
         'created_at': rm_issue.created_on,
         'assignee': None,
-        'milestone': milestone,
+        'milestone': milestone_id,
         'labels': labels,
         'assignee': None,
         'comments': comments
@@ -189,16 +196,12 @@ def get_imported_issue_id(url):
 
 def clear_github_labels(repository):
     # Clear labels
-    if CLEAR_LABELS and not DEBUG:
-        labels = repository.labels()
-        for label in labels:
-            label.delete()
+    labels = repository.labels()
+    for label in labels:
+        label.delete()
 
 
 def migrate_versions(project, repository):
-    if DEBUG:
-        return
-
     if CLEAR_MILESTONES:
         for milestone in repository.milestones(state='all'):
             if not milestone.delete():
@@ -224,6 +227,14 @@ def migrate_versions(project, repository):
         except Exception as e:
             print('Failed to migrate version "{}": {}'
                   .format(version.name, e))
+
+
+def redmine_linkback(redmine, rm_issue, url):
+    note = 'h1. WARNING: Issue Migrated to Github\n\n' \
+           'This issue has been migrated to Github: {}\n\n' \
+           'Please ensure any further updates are made on Github.'.format(url)
+
+    redmine.issue.update(rm_issue.id, notes=note)
 
 
 def migrate_issues(redmine, project, github, repository, s3):
@@ -255,6 +266,9 @@ def migrate_issues(redmine, project, github, repository, s3):
 
             new_issue = github.issue(GITHUB_USER, GITHUB_REPO, new_issue_id)
 
+            if REDMINE_LINKBACK:
+                redmine_linkback(redmine, rm_issue, new_issue.html_url)
+
             print('Migrated {}/issues/{} to {}'.format(
                 REDMINE_URL, rm_issue.id, new_issue.html_url))
 
@@ -281,9 +295,11 @@ def main():
     session = boto3.Session(profile_name=AWS_CLI_PROFILE)
     s3 = session.client('s3')
 
-    clear_github_labels(repository)
+    if CLEAR_LABELS and not DEBUG:
+        clear_github_labels(repository)
 
-    migrate_versions(project, repository)
+    if not DEBUG:
+        migrate_versions(project, repository)
 
     migrate_issues(redmine, project, github, repository, s3)
 
