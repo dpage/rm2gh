@@ -63,9 +63,15 @@ def format_changelog(changes, rm_issue, redmine):
 
             elif change['name'] == 'fixed_version_id':
                 if old_value is not None:
-                    old_value = str(redmine.version.get(int(old_value)))
+                    try:
+                        old_value = str(redmine.version.get(int(old_value)))
+                    except:
+                        old_value = 'Unknown'
                 if new_value is not None:
-                    new_value = str(redmine.version.get(int(new_value)))
+                    try:
+                        new_value = str(redmine.version.get(int(new_value)))
+                    except:
+                        old_value = 'Unknown'
 
             elif change['name'] == 'priority_id':
                 if old_value is not None:
@@ -340,17 +346,10 @@ def redmine_linkback(redmine, rm_issue, url):
     redmine.issue.update(rm_issue.id, notes=note)
 
 
-def migrate_issues(redmine, github, repository, s3):
-    if TRACK_STATUS:
-        with open('migrated_ids.txt') as file:
-            lines = file.readlines()
-            previously_migrated = [int(line.rstrip()) for line in lines]
-
+def migrate_issues(previous, redmine, github, repository, s3):
     # Iterate through the issues on Redmine
-    issue_count = 0
-
     if ISSUE_STATUS != 'open' and ISSUE_STATUS != 'closed':
-        issue_status = None
+        issue_status = '*'
     else:
         issue_status = ISSUE_STATUS
 
@@ -359,9 +358,15 @@ def migrate_issues(redmine, github, repository, s3):
                                   include=['journals',
                                            'attachments',
                                            'versions'])[:MAX_ISSUES]
+    num_issues = 0
+    num_migrated = 0
+    num_skipped = 0
     for rm_issue in issues:
+        num_issues = num_issues + 1
+
         # Skip previously migrated RMs, if enabled
-        if TRACK_STATUS and rm_issue.id in previously_migrated:
+        if TRACK_STATUS and (rm_issue.id in previous):
+            num_skipped = num_skipped + 1
             continue
 
         # Create the Github issue data
@@ -406,9 +411,10 @@ def migrate_issues(redmine, github, repository, s3):
             with open('migrated_ids.txt', 'a') as f:
                 f.write('{}\n'.format(rm_issue.id))
 
-        issue_count = issue_count + 1
+        num_migrated = num_migrated + 1
 
-    print('Migrated {} issues.'.format(issue_count))
+    print('Migrated {} issues out of {}. {} previously migrated'.format(
+        num_migrated, num_issues, num_skipped))
 
 
 def main():
@@ -426,13 +432,27 @@ def main():
     session = boto3.Session(profile_name=AWS_CLI_PROFILE)
     s3 = session.client('s3')
 
+    previous = []
+    if TRACK_STATUS:
+        with open('migrated_ids.txt') as file:
+            lines = file.readlines()
+            previous = [int(line.rstrip()) for line in lines]
+
     if CLEAR_LABELS and not DEBUG:
-        clear_github_labels(repository)
+        if len(previous) > 0:
+            print('Not clearing labels as {} issues have already been '
+                  'migrated.'.format(len(previous)))
+        else:
+            clear_github_labels(repository)
 
     if CLEAR_MILESTONES and not DEBUG:
-        migrate_versions(project, repository)
+        if len(previous) > 0:
+            print('Not clearing and migrating milestones as {} issues have '
+                  'already been migrated.'.format(len(previous)))
+        else:
+            migrate_versions(project, repository)
 
-    migrate_issues(redmine, github, repository, s3)
+    migrate_issues(previous, redmine, github, repository, s3)
 
 
 if __name__ == "__main__":
