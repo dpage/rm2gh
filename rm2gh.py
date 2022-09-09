@@ -344,7 +344,7 @@ def migrate_issues(redmine, github, repository, s3):
     if TRACK_STATUS:
         with open('migrated_ids.txt') as file:
             lines = file.readlines()
-            previously_migrated = [line.rstrip() for line in lines]
+            previously_migrated = [int(line.rstrip()) for line in lines]
 
     # Iterate through the issues on Redmine
     issue_count = 0
