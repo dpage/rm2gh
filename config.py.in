@@ -7,7 +7,16 @@ DEBUG = False
 
 # The maximum number of issues to try to migrate. Useful for testing with
 # a small initial batch.
-MAX_ISSUES = 1000
+MAX_ISSUES = 9999
+
+# The issues to migrate, based on their status
+ISSUE_STATUS = 'all'  # One of 'all', 'open', 'closed'
+
+# Track Status. If this is enabled, Redmine IDs will be written to
+# migrated_ids.txt, one per line. The next time the migration is run,
+# any IDs in the file will be skipped. Note that they will be discarded
+# *after* filtering by MAX_ISSUES and ISSUE_STATE.
+TRACK_STATUS = True
 
 # Clear labels from Github before migrating?
 CLEAR_LABELS = False

@@ -340,17 +340,29 @@ def redmine_linkback(redmine, rm_issue, url):
     redmine.issue.update(rm_issue.id, notes=note)
 
 
-def migrate_issues(redmine, project, github, repository, s3):
+def migrate_issues(redmine, github, repository, s3):
+    if TRACK_STATUS:
+        with open('migrated_ids.txt') as file:
+            lines = file.readlines()
+            previously_migrated = [line.rstrip() for line in lines]
+
     # Iterate through the issues on Redmine
     issue_count = 0
-    issues = redmine.issue.filter(sort='id', status_id='open',
+
+    if ISSUE_STATUS != 'open' and ISSUE_STATUS != 'closed':
+        issue_status = None
+    else:
+        issue_status = ISSUE_STATUS
+
+    issues = redmine.issue.filter(sort='id', status_id=issue_status,
                                   project_id=REDMINE_PROJECT,
                                   include=['journals',
                                            'attachments',
-                                           'versions'])
+                                           'versions'])[:MAX_ISSUES]
     for rm_issue in issues:
-        if issue_count == MAX_ISSUES:
-            break
+        # Skip previously migrated RMs, if enabled
+        if TRACK_STATUS and rm_issue.id in previously_migrated:
+            continue
 
         # Create the Github issue data
         gh_issue = create_issue(rm_issue, redmine, repository, s3)
@@ -369,6 +381,18 @@ def migrate_issues(redmine, project, github, repository, s3):
 
             new_issue = github.issue(GITHUB_USER, GITHUB_REPO, new_issue_id)
 
+            # Close the issue, if necessary
+            is_closed = False
+            try:
+                if rm_issue.closed_on is not None:
+                    is_closed = True
+            except:
+                pass
+
+            if is_closed:
+                new_issue.create_comment('Issue closed on Redmine.')
+                new_issue.close()
+
             if REDMINE_LINKBACK:
                 redmine_linkback(redmine, rm_issue, new_issue.html_url)
 
@@ -377,6 +401,10 @@ def migrate_issues(redmine, project, github, repository, s3):
 
         else:
             print(gh_issue)
+
+        if TRACK_STATUS:
+            with open('migrated_ids.txt', 'a') as f:
+                f.write('{}\n'.format(rm_issue.id))
 
         issue_count = issue_count + 1
 
@@ -404,7 +432,7 @@ def main():
     if CLEAR_MILESTONES and not DEBUG:
         migrate_versions(project, repository)
 
-    migrate_issues(redmine, project, github, repository, s3)
+    migrate_issues(redmine, github, repository, s3)
 
 
 if __name__ == "__main__":
