@@ -59,7 +59,7 @@ def format_changelog(changes, rm_issue, redmine):
                 if old_value is not None:
                     old_value = str(redmine.version.get(int(old_value)))
                 if new_value is not None:
-                    new_value = str(redmine.version.get(int(ew_value)))
+                    new_value = str(redmine.version.get(int(new_value)))
 
             elif change['name'] == 'priority_id':
                 if old_value is not None:
@@ -332,7 +332,7 @@ def migrate_issues(redmine, project, github, repository, s3):
 
             # Get the public ID of the new comment
             new_issue_id = get_imported_issue_id(imp_issue.url)
-            sleep_time = 1
+            sleep_time = 0
             while new_issue_id == 0:
                 time.sleep(sleep_time)
                 sleep_time = sleep_time + 1
