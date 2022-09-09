@@ -22,10 +22,16 @@ def s3_upload(s3, attachment, path):
 
     attachment.download(savepath=directory, filename=attachment.filename)
 
+    # Figure out a content type
+    try:
+        extra_args = {'ContentType': attachment.content_type,
+                      'ACL': "public-read"}
+    except:
+        extra_args = {'ACL': "public-read"}
+
     s3.upload_file(os.path.join(directory, attachment.filename),
                    S3_BUCKET_NAME, path,
-                   ExtraArgs={'ContentType': attachment.content_type,
-                              'ACL': "public-read"})
+                   ExtraArgs=extra_args)
 
     os.remove(os.path.join(directory, attachment.filename))
     os.rmdir(directory)
@@ -105,7 +111,14 @@ def format_changelog(changes, rm_issue, redmine):
 def format_attachment(attachment, issue_id, s3):
     # Construct the new comment and append it to the list
     filename = attachment.filename.replace(' ', '_')
-    if attachment.content_type.startswith('image/'):
+
+    # Figure out a content type
+    try:
+        content_type = attachment.content_type
+    except:
+        content_type = ''
+
+    if content_type.startswith('image/'):
         comment = '***Image migrated from Redmine: ' \
                   '{}/attachments/download/{}***\n' \
                   '*Originally created by {} at {} UTC.*\n\n' \
@@ -319,7 +332,7 @@ def redmine_linkback(redmine, rm_issue, url):
 def migrate_issues(redmine, project, github, repository, s3):
     # Iterate through the issues on Redmine
     issue_count = 0
-    issues = redmine.issue.filter(sort='id', status_id='open',
+    issues = redmine.issue.filter(sort='id', status_id='open', issue_id=7298,
                                   project_id=REDMINE_PROJECT,
                                   include=['journals',
                                            'attachments',
