@@ -109,19 +109,23 @@ def format_attachment(attachment, issue_id, s3):
         comment = '***Image migrated from Redmine: ' \
                   '{}/attachments/download/{}***\n' \
                   '*Originally created by {} at {} UTC.*\n\n' \
-                  '![{}]({}/{}/{}-{})\n\n**Description:** {}'.format(
+                  '![{}]({}/{}/{}-{})'.format(
                     REDMINE_URL, attachment.id, attachment.author,
                     attachment.created_on, filename,
                     S3_BUCKET_URL, issue_id, attachment.id,
-                    filename, attachment.description)
+                    filename)
     else:
         comment = '***Attachment migrated from Redmine: ' \
                   '{}/attachments/download/{}***\n' \
                   '*Originally created by {} at {} UTC.*\n\n' \
-                  '{}/{}/{}-{}\n\n**Description:** {}'.format(
+                  '{}/{}/{}-{}'.format(
                     REDMINE_URL, attachment.id, attachment.author,
                     attachment.created_on, S3_BUCKET_URL, issue_id,
-                    attachment.id, filename, attachment.description)
+                    attachment.id, filename)
+
+    if attachment.description != '':
+        comment = '{}\n\n**Description:** {}'\
+            .format(comment, attachment.description)
 
     if not DEBUG:
         s3_upload(s3,
