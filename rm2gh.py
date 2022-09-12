@@ -388,18 +388,25 @@ def migrate_issues(previous, redmine, github, repository, s3):
         gh_issue = create_issue(rm_issue, redmine, repository, s3)
 
         if not DEBUG:
-            # Perform the import
-            imp_issue = repository.import_issue(**gh_issue)
+            # We're going to loop over the import attempt here, as sometimes
+            # the Github import API seems to get "stuck" reporting 'pending'
+            # as the state. When this happens, it never seems to end up
+            # importing, so we'll just give up and retry.
+            new_issue = None
 
-            # Get the public ID of the new comment
-            new_issue_id = get_imported_issue_id(imp_issue.url)
-            sleep_time = 0
-            while new_issue_id == 0:
-                time.sleep(sleep_time)
-                sleep_time = sleep_time + 1
+            while new_issue is None:
+                # Perform the import
+                imp_issue = repository.import_issue(**gh_issue)
+
+                # Get the public ID of the new comment
                 new_issue_id = get_imported_issue_id(imp_issue.url)
+                sleep_time = 0
+                while new_issue_id == 0 and sleep_time < 20:
+                    time.sleep(sleep_time)
+                    sleep_time = sleep_time + 2
+                    new_issue_id = get_imported_issue_id(imp_issue.url)
 
-            new_issue = github.issue(GITHUB_OWNER, GITHUB_REPO, new_issue_id)
+                new_issue = github.issue(GITHUB_OWNER, GITHUB_REPO, new_issue_id)
 
             # Close the issue, if necessary
             is_closed = False
