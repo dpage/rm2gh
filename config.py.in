@@ -34,7 +34,7 @@ REDMINE_LINKBACK = False  # Add a link back to the new Github ticket on Redmine
 
 # Github details
 GITHUB_TOKEN = 'my_github_api_token'  # Must have repo access scope
-GITHUB_USER = 'my_github_username'
+GITHUB_OWNER = 'my_github_owner_or_org'  # Repo owner; username or org name
 GITHUB_REPO = 'my_github_repo_name'
 
 # AWS Details

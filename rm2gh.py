@@ -399,7 +399,7 @@ def migrate_issues(previous, redmine, github, repository, s3):
                 sleep_time = sleep_time + 1
                 new_issue_id = get_imported_issue_id(imp_issue.url)
 
-            new_issue = github.issue(GITHUB_USER, GITHUB_REPO, new_issue_id)
+            new_issue = github.issue(GITHUB_OWNER, GITHUB_REPO, new_issue_id)
 
             # Close the issue, if necessary
             is_closed = False
@@ -441,7 +441,7 @@ def main():
 
     # Login to Github
     github = github3.login(token=GITHUB_TOKEN)
-    repository = github.repository(GITHUB_USER, GITHUB_REPO)
+    repository = github.repository(GITHUB_OWNER, GITHUB_REPO)
 
     # Login to S3
     session = boto3.Session(profile_name=AWS_CLI_PROFILE)
