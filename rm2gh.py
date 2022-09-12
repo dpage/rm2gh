@@ -246,6 +246,11 @@ def get_comment_list(rm_issue, redmine, s3):
 
 def create_issue(rm_issue, redmine, repository, s3):
     # Construct the new ticket body/description
+    try:
+        author = rm_issue.author
+    except:
+        author = 'Unknown'
+
     body = '***Issue migrated from Redmine: ' \
            '{}/issues/{}***\n' \
            '*Originally created by **{}** at {} UTC.*\n\n{}'.format(
