@@ -99,7 +99,7 @@ def format_changelog(changes, rm_issue, redmine):
                 pass
 
             name = '{} changed'.format(
-                change['name'].replace('_', ' ').title().replace(' Id', ' ID'))
+                change['name'].replace('_', ' ').title().replace(' Id', ' '))
             old_value = old_value or ''
             new_value = new_value or ''
 
