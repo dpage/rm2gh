@@ -305,7 +305,11 @@ def get_imported_issue_id(url):
            'Accept': 'application/vnd.github.golden-comet-preview+json'}
 
     req = urllib.request.Request(url, headers=hdr)
-    data = urllib.request.urlopen(req).read()
+    try:
+        data = urllib.request.urlopen(req).read()
+    except urllib.error.HTTPError as e:
+        if e.code == 404:
+            return 0  # Retry
 
     issue = json.loads(data)
 
@@ -401,7 +405,7 @@ def migrate_issues(previous, redmine, github, repository, s3):
                 # Get the public ID of the new comment
                 new_issue_id = get_imported_issue_id(imp_issue.url)
                 sleep_time = 0
-                while new_issue_id == 0 and sleep_time < 20:
+                while new_issue_id == 0 and sleep_time < 60:
                     time.sleep(sleep_time)
                     sleep_time = sleep_time + 2
                     new_issue_id = get_imported_issue_id(imp_issue.url)
