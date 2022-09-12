@@ -406,7 +406,10 @@ def migrate_issues(previous, redmine, github, repository, s3):
                     sleep_time = sleep_time + 2
                     new_issue_id = get_imported_issue_id(imp_issue.url)
 
-                new_issue = github.issue(GITHUB_OWNER, GITHUB_REPO, new_issue_id)
+                if new_issue_id != 0:
+                    new_issue = github.issue(GITHUB_OWNER,
+                                             GITHUB_REPO,
+                                             new_issue_id)
 
             # Close the issue, if necessary
             is_closed = False
