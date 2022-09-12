@@ -148,7 +148,7 @@ def format_attachment(attachment, issue_id, s3):
     if content_type.startswith('image/'):
         comment = '***Image migrated from Redmine: ' \
                   '{}/attachments/download/{}***\n' \
-                  '*Originally created by {} at {} UTC.*\n\n' \
+                  '*Originally created by **{}** at {} UTC.*\n\n' \
                   '![{}]({}/{}/{}-{})\n\n**Filename:** {}'.format(
                     REDMINE_URL, attachment.id, attachment.author,
                     attachment.created_on, filename,
@@ -157,7 +157,7 @@ def format_attachment(attachment, issue_id, s3):
     else:
         comment = '***Attachment migrated from Redmine: ' \
                   '{}/attachments/download/{}***\n' \
-                  '*Originally created by {} at {} UTC.*\n\n' \
+                  '*Originally created by **{}** at {} UTC.*\n\n' \
                   '{}/{}/{}-{}'.format(
                     REDMINE_URL, attachment.id, attachment.author,
                     attachment.created_on, S3_BUCKET_URL, issue_id,
@@ -188,7 +188,7 @@ def format_journal(journal, rm_issue, note, project):
     # Construct the new comment and append it to the list
     comment = '***Comment migrated from Redmine: ' \
               '{}/issues/{}#note-{}***\n' \
-              '*Originally created by {} at {} UTC.*'.format(
+              '*Originally created by **{}** at {} UTC.*'.format(
                 REDMINE_URL, rm_issue.id, note, journal.user,
                 journal.created_on)
 
@@ -248,8 +248,8 @@ def create_issue(rm_issue, redmine, repository, s3):
     # Construct the new ticket body/description
     body = '***Issue migrated from Redmine: ' \
            '{}/issues/{}***\n' \
-           '*Originally created by {} at {} UTC.*\n\n{}'.format(
-            REDMINE_URL, rm_issue.id, rm_issue.author,
+           '*Originally created by **{}** at {} UTC.*\n\n{}'.format(
+            REDMINE_URL, rm_issue.id, author,
             rm_issue.created_on, rm_issue.description)
 
     comments = get_comment_list(rm_issue, redmine, s3)
