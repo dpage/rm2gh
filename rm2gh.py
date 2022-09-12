@@ -104,8 +104,12 @@ def format_changelog(changes, rm_issue, redmine):
             new_value = new_value or ''
 
         elif change['property'] == 'cf':
-            name = '{} changed'.format(
-                rm_issue.custom_fields.filter(id=int(change['name']))[0].name)
+            try:
+                name = '{} changed'.format(
+                    rm_issue.custom_fields.filter(
+                        id=int(change['name']))[0].name)
+            except:
+                name = 'Unknown custom field changed'
             old_value = change['old_value'] or ''
             new_value = change['new_value'] or ''
 
