@@ -466,9 +466,12 @@ def main():
 
     previous = []
     if TRACK_STATUS:
-        with open('migrated_ids.txt') as file:
-            lines = file.readlines()
-            previous = [int(line.rstrip()) for line in lines]
+        if os.path.exists('migrated_ids.txt'):
+            with open('migrated_ids.txt') as file:
+                lines = file.readlines()
+                previous = [int(line.rstrip()) for line in lines]
+        else:
+            previous = []
 
     if CLEAR_LABELS and not DEBUG:
         if len(previous) > 0:
