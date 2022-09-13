@@ -394,8 +394,7 @@ def migrate_issues(previous, redmine, github, repository, s3):
         if not DEBUG:
             # We're going to loop over the import attempt here, as sometimes
             # the Github import API seems to get "stuck" reporting 'pending'
-            # as the state. When this happens, it will sometimes get
-            # duplicated so we'll just spit out a warning.
+            # as the state.
             new_issue = None
 
             while new_issue is None:
@@ -404,10 +403,12 @@ def migrate_issues(previous, redmine, github, repository, s3):
 
                 # Get the public ID of the new comment
                 new_issue_id = get_imported_issue_id(imp_issue.url)
-                sleep_time = 0
-                while new_issue_id == 0 and sleep_time < 30:
+                sleep_time = 1
+
+                while new_issue_id == 0:
                     time.sleep(sleep_time)
-                    sleep_time = sleep_time + 2
+                    if sleep_time != 32:
+                        sleep_time = sleep_time * 2
                     new_issue_id = get_imported_issue_id(imp_issue.url)
 
                 if new_issue_id != 0:
@@ -420,10 +421,6 @@ def migrate_issues(previous, redmine, github, repository, s3):
                         new_issue = github.issue(GITHUB_OWNER,
                                                  GITHUB_REPO,
                                                  new_issue_id)
-
-                else:
-                    print('Re-attempting import of RM #{}. '
-                          'Duplication may occur.'.format(rm_issue.id))
 
             # Close the issue, if necessary
             is_closed = False
