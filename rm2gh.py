@@ -411,9 +411,16 @@ def migrate_issues(previous, redmine, github, repository, s3):
                     new_issue_id = get_imported_issue_id(imp_issue.url)
 
                 if new_issue_id != 0:
-                    new_issue = github.issue(GITHUB_OWNER,
-                                             GITHUB_REPO,
-                                             new_issue_id)
+                    try:
+                        new_issue = github.issue(GITHUB_OWNER,
+                                                 GITHUB_REPO,
+                                                 new_issue_id)
+                    except github3.exceptions.NotFoundError as e:
+                        time.sleep(5)
+                        new_issue = github.issue(GITHUB_OWNER,
+                                                 GITHUB_REPO,
+                                                 new_issue_id)
+
                 else:
                     print('Re-attempting import of RM #{}. '
                           'Duplication may occur.'.format(rm_issue.id))
