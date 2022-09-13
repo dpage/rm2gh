@@ -44,3 +44,4 @@ GITHUB_REPO = 'my_github_repo_name'
 AWS_CLI_PROFILE = 'my_aws_cli_profile'
 S3_BUCKET_NAME = 'my_s3_bucket_name'
 S3_BUCKET_URL = 'my_s3_bucket_public_url'
+S3_SKIP_UPLOAD = False  # Useful if attachments have been previously uploaded

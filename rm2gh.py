@@ -167,7 +167,7 @@ def format_attachment(attachment, issue_id, s3):
         comment = '{}\n\n**Description:** {}'\
             .format(comment, attachment.description)
 
-    if not DEBUG:
+    if not DEBUG and not S3_SKIP_UPLOAD:
         s3_upload(s3,
                   attachment,
                   'redmine/{}/{}-{}'.format(
