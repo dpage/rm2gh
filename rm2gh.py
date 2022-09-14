@@ -310,6 +310,8 @@ def get_imported_issue_id(url):
     except urllib.error.HTTPError as e:
         if e.code == 404:
             return 0  # Retry
+    except urllib.error.URLError as e:
+        return 0  # Retry
 
     issue = json.loads(data)
 
@@ -416,7 +418,8 @@ def migrate_issues(previous, redmine, github, repository, s3):
                         new_issue = github.issue(GITHUB_OWNER,
                                                  GITHUB_REPO,
                                                  new_issue_id)
-                    except github3.exceptions.NotFoundError as e:
+                    except (github3.exceptions.NotFoundError,
+                            github3.exceptions.ConnectionError) as e:
                         time.sleep(5)
                         new_issue = github.issue(GITHUB_OWNER,
                                                  GITHUB_REPO,
