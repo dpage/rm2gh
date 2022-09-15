@@ -409,8 +409,8 @@ def migrate_issues(previous, redmine, github, repository, s3):
 
                 while new_issue_id == 0:
                     time.sleep(sleep_time)
-                    if sleep_time != 32:
-                        sleep_time = sleep_time * 2
+                    if sleep_time != 81:
+                        sleep_time = sleep_time * 3
                     new_issue_id = get_imported_issue_id(imp_issue.url)
 
                 if new_issue_id != 0:
